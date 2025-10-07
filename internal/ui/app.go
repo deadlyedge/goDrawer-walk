@@ -20,8 +20,9 @@ type App struct {
 	brandLabel      *walk.Label
 	settingsButton  *walk.PushButton
 	addDrawerButton *walk.PushButton
-	drawerButtons   []*walk.PushButton
+	drawerItems     []*drawerItemView
 	drawerWindows   []*drawerWindow
+	hoveredDrawer   *drawerItemView
 
 	brushes struct {
 		AccentLight  *walk.SolidColorBrush
@@ -33,6 +34,16 @@ type App struct {
 	}
 
 	buttonStyles map[*walk.PushButton]buttonStyle
+
+	notifyIcon  *walk.NotifyIcon
+	trayActions struct {
+		ShowHide *walk.Action
+	}
+
+	images struct {
+		Drawer walk.Image
+		Tray   *walk.Icon
+	}
 }
 
 type buttonStyle struct {
@@ -64,11 +75,26 @@ func (a *App) run() error {
 		return err
 	}
 
+	if err := a.loadImages(); err != nil {
+		log.Printf("warn: failed to load UI images: %v", err)
+	}
+
 	if err := a.createMainWindow(); err != nil {
 		return err
 	}
 
-	a.mainWindow.Disposing().Attach(func() { a.disposeBrushes() })
+	a.mainWindow.Disposing().Attach(func() {
+		if a.notifyIcon != nil {
+			a.notifyIcon.Dispose()
+			a.notifyIcon = nil
+		}
+		a.disposeImages()
+		a.disposeBrushes()
+	})
+
+	if err := a.setupNotifyIcon(); err != nil {
+		log.Printf("warn: failed to create system tray icon: %v", err)
+	}
 
 	a.refreshButtonStyles()
 	a.applyPalette()
@@ -124,6 +150,47 @@ func (a *App) disposeBrushes() {
 	if a.brushes.SurfaceLight != nil {
 		a.brushes.SurfaceLight.Dispose()
 	}
+
+	a.brushes = struct {
+		AccentLight  *walk.SolidColorBrush
+		Accent       *walk.SolidColorBrush
+		AccentDark   *walk.SolidColorBrush
+		Background   *walk.SolidColorBrush
+		Surface      *walk.SolidColorBrush
+		SurfaceLight *walk.SolidColorBrush
+	}{}
+}
+
+func (a *App) loadImages() error {
+	if a.images.Drawer == nil {
+		img, err := walk.NewBitmapFromFile(filepath.Join("assets", "icons", "folder_icon.png"))
+		if err != nil {
+			return err
+		}
+
+		a.images.Drawer = img
+	}
+
+	if a.images.Tray == nil {
+		if icon, err := walk.NewIconFromFile(filepath.Join("assets", "drawer.icon.4.ico")); err == nil {
+			a.images.Tray = icon
+		} else {
+			log.Printf("warn: failed to load tray icon: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func (a *App) disposeImages() {
+	if bmp, ok := a.images.Drawer.(*walk.Bitmap); ok && bmp != nil {
+		bmp.Dispose()
+	}
+	a.images.Drawer = nil
+	if a.images.Tray != nil {
+		a.images.Tray.Dispose()
+		a.images.Tray = nil
+	}
 }
 
 func (a *App) applyPalette() {
@@ -147,11 +214,12 @@ func (a *App) applyPalette() {
 		a.brandLabel.SetTextColor(a.palette.TextPrimary)
 	}
 
+	for _, item := range a.drawerItems {
+		item.applyPalette(item == a.hoveredDrawer)
+	}
+
 	a.applyButtonStyle(a.settingsButton)
 	a.applyButtonStyle(a.addDrawerButton)
-	for _, btn := range a.drawerButtons {
-		a.applyButtonStyle(btn)
-	}
 
 	for _, dw := range a.drawerWindows {
 		dw.applyTheme()
@@ -178,6 +246,7 @@ func (a *App) applyButtonStyle(btn *walk.PushButton) {
 			btn.SetBackground(style.base)
 		}
 	}
+
 }
 
 func (a *App) persistDrawerSettings(updated settings.Drawer) {
@@ -197,6 +266,22 @@ func (a *App) persistDrawerSettings(updated settings.Drawer) {
 	}
 }
 
+func (a *App) setHoveredDrawer(item *drawerItemView) {
+	if a.hoveredDrawer == item {
+		return
+	}
+
+	if a.hoveredDrawer != nil {
+		a.hoveredDrawer.applyPalette(false)
+	}
+
+	a.hoveredDrawer = item
+
+	if a.hoveredDrawer != nil {
+		a.hoveredDrawer.applyPalette(true)
+	}
+}
+
 func (a *App) refreshButtonStyles() {
 	if a.buttonStyles == nil {
 		a.buttonStyles = map[*walk.PushButton]buttonStyle{}
@@ -209,10 +294,102 @@ func (a *App) refreshButtonStyles() {
 	if a.addDrawerButton != nil {
 		a.buttonStyles[a.addDrawerButton] = buttonStyle{base: a.brushes.Accent, hover: a.brushes.AccentLight}
 	}
+}
 
-	for _, btn := range a.drawerButtons {
-		a.buttonStyles[btn] = buttonStyle{base: a.brushes.SurfaceLight, hover: a.brushes.AccentLight}
+func (a *App) setupNotifyIcon() error {
+	if a.mainWindow == nil {
+		return nil
 	}
+
+	ni, err := walk.NewNotifyIcon(a.mainWindow)
+	if err != nil {
+		return err
+	}
+
+	if a.images.Tray != nil {
+		ni.SetIcon(a.images.Tray)
+	}
+	ni.SetToolTip("goDrawer")
+
+	titleAction := walk.NewAction()
+	titleAction.SetText("goDrawer")
+	titleAction.Triggered().Attach(func() {
+		a.showMainWindow()
+	})
+
+	a.trayActions.ShowHide = walk.NewAction()
+	a.trayActions.ShowHide.SetText("Hide app")
+	a.trayActions.ShowHide.Triggered().Attach(func() {
+		a.toggleMainWindowVisibility()
+	})
+
+	exitAction := walk.NewAction()
+	exitAction.SetText("Exit app")
+	exitAction.Triggered().Attach(func() {
+		walk.App().Exit(0)
+	})
+
+	menu := ni.ContextMenu()
+	menu.Actions().Add(titleAction)
+	menu.Actions().Add(a.trayActions.ShowHide)
+	menu.Actions().Add(exitAction)
+
+	ni.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
+		if button == walk.LeftButton {
+			a.toggleMainWindowVisibility()
+		}
+	})
+
+	if err := ni.SetVisible(true); err != nil {
+		ni.Dispose()
+		return err
+	}
+
+	a.notifyIcon = ni
+	return nil
+}
+
+func (a *App) showMainWindow() {
+	if a.mainWindow == nil {
+		return
+	}
+	a.mainWindow.Show()
+	a.mainWindow.BringToTop()
+	a.mainWindow.SetFocus()
+	if a.trayActions.ShowHide != nil {
+		a.trayActions.ShowHide.SetText("Hide app")
+	}
+}
+
+func (a *App) hideMainWindow() {
+	if a.mainWindow == nil {
+		return
+	}
+	a.mainWindow.Hide()
+	if a.trayActions.ShowHide != nil {
+		a.trayActions.ShowHide.SetText("Show app")
+	}
+}
+
+func (a *App) toggleMainWindowVisibility() {
+	if a.mainWindow == nil {
+		return
+	}
+	if a.mainWindow.Visible() {
+		a.hideMainWindow()
+	} else {
+		a.showMainWindow()
+	}
+}
+
+func (a *App) drawerItemAt(x, y int) *drawerItemView {
+	for _, item := range a.drawerItems {
+		b := item.boundsInContainer()
+		if x >= b.X && x < b.X+b.Width && y >= b.Y && y < b.Y+b.Height {
+			return item
+		}
+	}
+	return nil
 }
 
 func (a *App) updateTheme(theme settings.Theme) error {

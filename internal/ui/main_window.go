@@ -9,6 +9,43 @@ import (
 	"github.com/lxn/walk/declarative"
 )
 
+type drawerItemView struct {
+	app    *App
+	drawer settings.Drawer
+	root   *walk.Composite
+	icon   *walk.ImageView
+	name   *walk.Label
+}
+
+func (item *drawerItemView) applyPalette(hover bool) {
+	if item == nil || item.app == nil {
+		return
+	}
+
+	if hover {
+		if item.root != nil && item.app.brushes.AccentLight != nil {
+			item.root.SetBackground(item.app.brushes.AccentLight)
+		}
+		if item.name != nil {
+			item.name.SetTextColor(item.app.palette.TextPrimary)
+		}
+	} else {
+		if item.root != nil && item.app.brushes.SurfaceLight != nil {
+			item.root.SetBackground(item.app.brushes.SurfaceLight)
+		}
+		if item.name != nil {
+			item.name.SetTextColor(item.app.palette.TextSecondary)
+		}
+	}
+}
+
+func (item *drawerItemView) boundsInContainer() walk.Rectangle {
+	if item == nil || item.root == nil {
+		return walk.Rectangle{}
+	}
+	return item.root.Bounds()
+}
+
 func (a *App) createMainWindow() error {
 	dragHandler := func(x, y int, button walk.MouseButton) {
 		if button == walk.LeftButton && a.mainWindow != nil {
@@ -100,6 +137,28 @@ func (a *App) createMainWindow() error {
 	a.decorateActionButton(a.settingsButton, a.brushes.AccentDark, a.brushes.Accent)
 	a.decorateActionButton(a.addDrawerButton, a.brushes.Accent, a.brushes.AccentLight)
 
+	if a.drawerContainer != nil {
+		a.drawerContainer.MouseMove().Attach(func(x, y int, button walk.MouseButton) {
+			a.setHoveredDrawer(a.drawerItemAt(x, y))
+		})
+	}
+
+	if a.bodyComposite != nil {
+		a.bodyComposite.MouseMove().Attach(func(int, int, walk.MouseButton) {
+			a.setHoveredDrawer(nil)
+		})
+	}
+
+	if a.headerComposite != nil {
+		a.headerComposite.MouseMove().Attach(func(int, int, walk.MouseButton) {
+			a.setHoveredDrawer(nil)
+		})
+	}
+
+	a.mainWindow.MouseMove().Attach(func(int, int, walk.MouseButton) {
+		a.setHoveredDrawer(nil)
+	})
+
 	return nil
 }
 
@@ -114,35 +173,17 @@ func (a *App) refreshDrawerList() error {
 		child.Dispose()
 	}
 
-	a.drawerButtons = a.drawerButtons[:0]
+	a.drawerItems = nil
+	a.setHoveredDrawer(nil)
 
 	for _, drawer := range a.config.Drawers {
-		comp, err := walk.NewComposite(a.drawerContainer)
+		item, err := a.createDrawerItem(drawer)
 		if err != nil {
 			return err
 		}
-
-		layout := walk.NewHBoxLayout()
-		layout.SetMargins(walk.Margins{HNear: 0, VNear: 0, HFar: 0, VFar: 0})
-		layout.SetSpacing(0)
-		comp.SetLayout(layout)
-		comp.SetBackground(a.brushes.SurfaceLight)
-
-		btn, err := walk.NewPushButton(comp)
-		if err != nil {
-			return err
-		}
-		btn.SetText(drawer.Name)
-		btn.SetMinMaxSize(walk.Size{Width: 0, Height: 36}, walk.Size{})
-		a.decorateActionButton(btn, a.brushes.SurfaceLight, a.brushes.AccentLight)
-
-		current := drawer
-		btn.Clicked().Attach(func() { a.openDrawer(current) })
-
-		a.drawerButtons = append(a.drawerButtons, btn)
+		a.drawerItems = append(a.drawerItems, item)
 	}
 
-	a.refreshButtonStyles()
 	return nil
 }
 
@@ -184,4 +225,72 @@ func (a *App) onAddDrawer() {
 	if err := a.refreshDrawerList(); err != nil {
 		log.Printf("failed to refresh drawer list: %v", err)
 	}
+}
+
+func (a *App) createDrawerItem(drawer settings.Drawer) (*drawerItemView, error) {
+	comp, err := walk.NewComposite(a.drawerContainer)
+	if err != nil {
+		return nil, err
+	}
+	comp.SetDoubleBuffering(true)
+
+	layout := walk.NewHBoxLayout()
+	layout.SetMargins(walk.Margins{HNear: 12, VNear: 6, HFar: 12, VFar: 6})
+	layout.SetSpacing(10)
+	comp.SetLayout(layout)
+
+	item := &drawerItemView{
+		app:    a,
+		drawer: drawer,
+		root:   comp,
+	}
+
+	if a.brushes.SurfaceLight != nil {
+		comp.SetBackground(a.brushes.SurfaceLight)
+	}
+
+	icon, err := walk.NewImageView(comp)
+	if err != nil {
+		comp.Dispose()
+		return nil, err
+	}
+	icon.SetMode(walk.ImageViewModeZoom)
+	icon.SetMinMaxSize(walk.Size{Width: 28, Height: 28}, walk.Size{})
+	if a.images.Drawer != nil {
+		if err := icon.SetImage(a.images.Drawer); err != nil {
+			log.Printf("warn: failed to set drawer icon: %v", err)
+		}
+	}
+	item.icon = icon
+
+	nameLabel, err := walk.NewLabel(comp)
+	if err != nil {
+		comp.Dispose()
+		return nil, err
+	}
+	nameLabel.SetText(drawer.Name)
+	nameLabel.SetTextAlignment(walk.AlignNear)
+	nameLabel.SetTextColor(a.palette.TextSecondary)
+	layout.SetStretchFactor(nameLabel, 1)
+	item.name = nameLabel
+
+	comp.SetCursor(walk.CursorHand())
+	icon.SetCursor(walk.CursorHand())
+	nameLabel.SetCursor(walk.CursorHand())
+
+	for _, w := range []walk.Widget{comp, icon, nameLabel} {
+		wb := w.AsWindowBase()
+		wb.MouseMove().Attach(func(int, int, walk.MouseButton) {
+			a.setHoveredDrawer(item)
+		})
+		wb.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
+			if button == walk.LeftButton {
+				a.openDrawer(drawer)
+			}
+		})
+	}
+
+	item.applyPalette(false)
+
+	return item, nil
 }
