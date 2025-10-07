@@ -12,3 +12,5 @@ require (
 	golang.org/x/sys v0.36.0 // indirect
 	gopkg.in/Knetic/govaluate.v3 v3.0.0 // indirect
 )
+
+ignore ./reference
