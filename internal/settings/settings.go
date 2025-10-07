@@ -20,17 +20,19 @@ type Size struct {
 	Height int `toml:"height"`
 }
 
+// Startup represents startup configuration
+type Startup struct {
+	StartWithWindows bool `toml:"start_with_windows"`
+	WindowLocked     bool `toml:"window_locked"`
+}
+
 // Settings represents the complete configuration
 type Settings struct {
-	Drawers             []Drawer          `toml:"drawers"`
-	WindowPosition      Point             `toml:"window_position"`
-	BackgroundColorHSLA []float64         `toml:"background_color_hsla"`
-	StartWithWindows    bool              `toml:"start_with_windows"`
-	DefaultIconFolder   string            `toml:"default_icon_folder_path"`
-	DefaultIconFile     string            `toml:"default_icon_file_theme"`
-	DefaultIconUnknown  string            `toml:"default_icon_unknown_theme"`
-	ThumbnailSize       Size              `toml:"thumbnail_size"`
-	ExtensionIconMap    map[string]string `toml:"extension_icon_map"`
+	Startup           Startup           `toml:"startup"`
+	Drawers           []Drawer          `toml:"drawers"`
+	WindowPosition    Point             `toml:"window_position"`
+	ThumbnailSize     Size              `toml:"thumbnail_size"`
+	ExtensionIconMap  map[string]string `toml:"extension_icon_map"`
 }
 
 // Point represents a 2D point
@@ -39,7 +41,7 @@ type Point struct {
 	Y int `toml:"y"`
 }
 
-// Read reads and parses the drawers-settings.toml file
+// Read reads and parses the goDrawer-settings.toml file
 func Read(path string) (*Settings, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -79,6 +81,10 @@ func Init(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		// If the file doesn't exist, create it with default settings
 		defaultSettings := Settings{
+			Startup: Startup{
+				StartWithWindows: false,
+				WindowLocked:     false,
+			},
 			Drawers: []Drawer{
 				{
 					Name: "Drawer 1",
@@ -86,14 +92,9 @@ func Init(path string) {
 					Size: Size{Width: 800, Height: 600},
 				},
 			},
-			WindowPosition:      Point{X: 100, Y: 100},
-			BackgroundColorHSLA: []float64{0, 0, 0, 1},
-			StartWithWindows:    false,
-			DefaultIconFolder:   "C:\\Program Files\\File Explorer\\assets\\icons\\folder.png",
-			DefaultIconFile:     "C:\\Program Files\\File Explorer\\assets\\icons\\file.png",
-			DefaultIconUnknown:  "C:\\Program Files\\File Explorer\\assets\\icons\\unknown.png",
-			ThumbnailSize:       Size{Width: 128, Height: 128},
-			ExtensionIconMap:    map[string]string{},
+			WindowPosition:   Point{X: 100, Y: 100},
+			ThumbnailSize:    Size{Width: 96, Height: 96},
+			ExtensionIconMap: map[string]string{},
 		}
 
 		// Write the default settings to the file
@@ -124,6 +125,12 @@ func Print(settings *Settings) {
 	fmt.Println("=== Drawers Settings ===")
 	fmt.Println()
 
+	// Print Startup Settings
+	fmt.Println("⚙️  Startup Settings:")
+	fmt.Printf("  Start with Windows: %t\n", settings.Startup.StartWithWindows)
+	fmt.Printf("  Window Locked: %t\n", settings.Startup.WindowLocked)
+	fmt.Println()
+
 	// Print Drawers
 	fmt.Println("📁 Drawers:")
 	for i, drawer := range settings.Drawers {
@@ -136,16 +143,11 @@ func Print(settings *Settings) {
 	// Print Window Configuration
 	fmt.Println("🪟 Window Configuration:")
 	fmt.Printf("  Position: (%d, %d)\n", settings.WindowPosition.X, settings.WindowPosition.Y)
-	fmt.Printf("  Background HSLA: %v\n", settings.BackgroundColorHSLA)
-	fmt.Printf("  Start with Windows: %t\n", settings.StartWithWindows)
 	fmt.Println()
 
-	// Print Icon Settings
-	fmt.Println("🖼️  Icon Settings:")
-	fmt.Printf("  Default Folder Icon: %s\n", settings.DefaultIconFolder)
-	fmt.Printf("  Default File Icon Theme: %s\n", settings.DefaultIconFile)
-	fmt.Printf("  Default Unknown Icon: %s\n", settings.DefaultIconUnknown)
-	fmt.Printf("  Thumbnail Size: %dx%d\n", settings.ThumbnailSize.Width, settings.ThumbnailSize.Height)
+	// Print Thumbnail Settings
+	fmt.Println("🖼️  Thumbnail Settings:")
+	fmt.Printf("  Size: %dx%d\n", settings.ThumbnailSize.Width, settings.ThumbnailSize.Height)
 	fmt.Println()
 
 	// Print Extension Icon Map

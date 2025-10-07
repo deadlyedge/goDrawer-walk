@@ -1,7 +1,6 @@
-start_with_windows = false
-default_icon_folder_path = ""
-default_icon_file_theme = ""
-default_icon_unknown_theme = ""
+[startup]
+  start_with_windows = false
+  window_locked = false
 
 [[drawers]]
   name = "Netch"
@@ -41,3 +40,8 @@ default_icon_unknown_theme = ""
 
 [extension_icon_map]
   ".url" = "asset/icons/browser_url.png"
+
+[deprecated]
+  icon_folder_path = ""
+  icon_file_theme = ""
+  icon_unknown_theme = ""
