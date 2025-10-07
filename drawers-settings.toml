@@ -1,0 +1,43 @@
+start_with_windows = false
+default_icon_folder_path = ""
+default_icon_file_theme = ""
+default_icon_unknown_theme = ""
+
+[[drawers]]
+  name = "Netch"
+  path = "D:\\users\\Desktop\\Netch"
+  [drawers.size]
+    width = 403
+    height = 324
+
+[[drawers]]
+  name = "mkvtoolnix"
+  path = "D:\\users\\Desktop\\mkvtoolnix"
+  [drawers.size]
+    width = 477
+    height = 460
+
+[[drawers]]
+  name = "DaVinci Resolve"
+  path = "C:\\Users\\xdrea\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Blackmagic Design\\DaVinci Resolve"
+  [drawers.size]
+    width = 407
+    height = 265
+
+[[drawers]]
+  name = "桌面文档"
+  path = "D:\\users\\Documents\\桌面抽屉\\桌面文档"
+  [drawers.size]
+    width = 327
+    height = 363
+
+[window_position]
+  x = 2831
+  y = 1066
+
+[thumbnail_size]
+  width = 96
+  height = 96
+
+[extension_icon_map]
+  ".url" = "asset/icons/browser_url.png"
