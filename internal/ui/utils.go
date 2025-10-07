@@ -1,19 +1,17 @@
 package ui
 
 import (
-	"fmt"
-	"math"
 	"syscall"
+	"unsafe"
 
 	"github.com/lxn/walk"
 	"github.com/lxn/win"
 )
 
 const (
-	targetAlpha      byte   = 200 // 0-255 where 255 is fully opaque
-	lwaAlpha         uint32 = 0x2
-	WS_EX_APPWINDOW         = 0x00040000
-	WS_EX_TOOLWINDOW        = 0x00000080
+	lwaAlpha       uint32 = 0x2
+	wsExAppWindow  uint32 = 0x00040000
+	wsExToolWindow uint32 = 0x00000080
 )
 
 var (
@@ -22,61 +20,6 @@ var (
 	procCreateWindowEx             = user32.NewProc("CreateWindowExW")
 	hwndOwner                      win.HWND
 )
-
-func setWindowLongPtrWithError(hwnd win.HWND, index int, value uintptr) error {
-	win.SetLastError(0)
-	prev := win.SetWindowLongPtr(hwnd, index, value)
-	if prev == 0 {
-		if err := syscall.GetLastError(); err != syscall.Errno(0) {
-			return err
-		}
-	}
-	return nil
-}
-
-func setWindowLongWithError(hwnd win.HWND, index int32, value int32) error {
-	win.SetLastError(0)
-	prev := win.SetWindowLong(hwnd, index, value)
-	if prev == 0 {
-		if err := syscall.GetLastError(); err != syscall.Errno(0) {
-			return err
-		}
-	}
-	return nil
-}
-
-func hideFromTaskbar(mw *walk.MainWindow) error {
-	if mw == nil {
-		return syscall.EINVAL
-	}
-
-	hwnd := win.HWND(mw.Handle())
-	if hwnd == 0 {
-		return syscall.EINVAL
-	}
-
-	if err := ensureOwnerWindow(); err != nil {
-		return fmt.Errorf("ensure owner window: %w", err)
-	}
-
-	if err := setWindowLongPtrWithError(hwnd, win.GWL_HWNDPARENT, uintptr(hwndOwner)); err != nil {
-		return fmt.Errorf("assign owner: %w", err)
-	}
-
-	exStyle := uint32(win.GetWindowLong(hwnd, win.GWL_EXSTYLE))
-	exStyle &^= WS_EX_APPWINDOW
-	exStyle |= WS_EX_TOOLWINDOW
-
-	if err := setWindowLongWithError(hwnd, win.GWL_EXSTYLE, int32(exStyle)); err != nil {
-		return fmt.Errorf("update extended style: %w", err)
-	}
-
-	if !win.SetWindowPos(hwnd, 0, 0, 0, 0, 0, win.SWP_NOMOVE|win.SWP_NOSIZE|win.SWP_NOZORDER|win.SWP_FRAMECHANGED|win.SWP_NOACTIVATE) {
-		return fmt.Errorf("update window position: %w", syscall.GetLastError())
-	}
-
-	return nil
-}
 
 func makeWindowBorderless(mw *walk.MainWindow) error {
 	hwnd := mw.Handle()
@@ -141,7 +84,86 @@ func beginWindowDrag(mw *walk.MainWindow) {
 	win.SendMessage(hwnd, win.WM_NCLBUTTONDOWN, uintptr(win.HTCAPTION), 0)
 }
 
-func opacityLabelText(alpha int) string {
-	percent := int(math.Round(float64(alpha) * 100 / 255))
-	return fmt.Sprintf("Opacity: %d (%d%%)", alpha, percent)
+func hideFromTaskbar(mw *walk.MainWindow) error {
+	if mw == nil {
+		return syscall.EINVAL
+	}
+
+	hwnd := win.HWND(mw.Handle())
+	if hwnd == 0 {
+		return syscall.EINVAL
+	}
+
+	if err := ensureOwnerWindow(); err != nil {
+		return err
+	}
+
+	if err := setWindowLongPtrWithError(hwnd, win.GWL_HWNDPARENT, uintptr(hwndOwner)); err != nil {
+		return err
+	}
+
+	exStyle := uint32(win.GetWindowLong(hwnd, win.GWL_EXSTYLE))
+	exStyle &^= wsExAppWindow
+	exStyle |= wsExToolWindow
+
+	if err := setWindowLongWithError(hwnd, win.GWL_EXSTYLE, int32(exStyle)); err != nil {
+		return err
+	}
+
+	if !win.SetWindowPos(hwnd, 0, 0, 0, 0, 0, win.SWP_NOMOVE|win.SWP_NOSIZE|win.SWP_NOZORDER|win.SWP_FRAMECHANGED|win.SWP_NOACTIVATE) {
+		return syscall.GetLastError()
+	}
+
+	return nil
+}
+
+func ensureOwnerWindow() error {
+	if hwndOwner != 0 {
+		return nil
+	}
+
+	className, _ := syscall.UTF16PtrFromString("STATIC")
+
+	r, _, err := procCreateWindowEx.Call(
+		0,
+		uintptr(unsafe.Pointer(className)),
+		0,
+		0,
+		0, 0, 0, 0,
+		uintptr(win.HWND_MESSAGE),
+		0,
+		uintptr(win.GetModuleHandle(nil)),
+		0,
+	)
+	if r == 0 {
+		if errno, ok := err.(syscall.Errno); ok && errno != 0 {
+			return errno
+		}
+		return syscall.EINVAL
+	}
+
+	hwndOwner = win.HWND(r)
+	return nil
+}
+
+func setWindowLongPtrWithError(hwnd win.HWND, index int, value uintptr) error {
+	win.SetLastError(0)
+	prev := win.SetWindowLongPtr(hwnd, index, value)
+	if prev == 0 {
+		if err := syscall.GetLastError(); err != syscall.Errno(0) {
+			return err
+		}
+	}
+	return nil
+}
+
+func setWindowLongWithError(hwnd win.HWND, index int32, value int32) error {
+	win.SetLastError(0)
+	prev := win.SetWindowLong(hwnd, index, value)
+	if prev == 0 {
+		if err := syscall.GetLastError(); err != syscall.Errno(0) {
+			return err
+		}
+	}
+	return nil
 }

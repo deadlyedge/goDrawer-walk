@@ -7,48 +7,66 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Drawer represents a drawer configuration
+// Drawer represents a drawer configuration.
 type Drawer struct {
 	Name string `toml:"name"`
 	Path string `toml:"path"`
 	Size Size   `toml:"size"`
 }
 
-// Size represents the size of a drawer window
+// Size represents the size of a drawer window.
 type Size struct {
 	Width  int `toml:"width"`
 	Height int `toml:"height"`
 }
 
-// Startup represents startup configuration
+// Startup represents startup configuration.
 type Startup struct {
 	StartWithWindows bool `toml:"start_with_windows"`
 	WindowLocked     bool `toml:"window_locked"`
 }
 
-// Settings represents the complete configuration
-type Settings struct {
-	Startup           Startup           `toml:"startup"`
-	Drawers           []Drawer          `toml:"drawers"`
-	WindowPosition    Point             `toml:"window_position"`
-	ThumbnailSize     Size              `toml:"thumbnail_size"`
-	ExtensionIconMap  map[string]string `toml:"extension_icon_map"`
+// Theme captures HSLA values for the UI layer.
+type Theme struct {
+	Hue        int `toml:"h"`
+	Saturation int `toml:"s"`
+	Lightness  int `toml:"l"`
+	Alpha      int `toml:"a"`
 }
 
-// Point represents a 2D point
+// Settings represents the complete configuration.
+type Settings struct {
+	Startup          Startup           `toml:"startup"`
+	Drawers          []Drawer          `toml:"drawers"`
+	WindowPosition   Point             `toml:"window_position"`
+	ThumbnailSize    Size              `toml:"thumbnail_size"`
+	Theme            Theme             `toml:"theme"`
+	ExtensionIconMap map[string]string `toml:"extension_icon_map"`
+	Deprecated       map[string]string `toml:"deprecated,omitempty"`
+}
+
+// Point represents a 2D point.
 type Point struct {
 	X int `toml:"x"`
 	Y int `toml:"y"`
 }
 
-// Read reads and parses the goDrawer-settings.toml file
+// DefaultTheme returns the base theme reflected in the design reference.
+func DefaultTheme() Theme {
+	return Theme{Hue: 192, Saturation: 40, Lightness: 36, Alpha: 80}
+}
+
+// Read reads and parses the goDrawer-settings.toml file.
 func Read(path string) (*Settings, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			Init(path)
+			data, err = os.ReadFile(path)
 		}
-		return nil, fmt.Errorf("failed to read settings file: %w", err)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read settings file: %w", err)
+		}
 	}
 
 	var settings Settings
@@ -56,10 +74,11 @@ func Read(path string) (*Settings, error) {
 		return nil, fmt.Errorf("failed to parse TOML file: %w", err)
 	}
 
+	settings.applyDefaults()
 	return &settings, nil
 }
 
-// Update updates the settings file with the provided settings
+// Update updates the settings file with the provided settings.
 func Update(path string, settings *Settings) error {
 	file, err := os.Create(path)
 	if err != nil {
@@ -75,44 +94,40 @@ func Update(path string, settings *Settings) error {
 	return nil
 }
 
-// Init settings file
+// Init creates the settings file using default values if it does not exist.
 func Init(path string) {
-	// Check if the settings file already exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		// If the file doesn't exist, create it with default settings
 		defaultSettings := Settings{
 			Startup: Startup{
 				StartWithWindows: false,
 				WindowLocked:     false,
 			},
 			Drawers: []Drawer{
-				{
-					Name: "Drawer 1",
-					Path: "C:\\",
-					Size: Size{Width: 800, Height: 600},
-				},
+				{Name: "Drawer 1", Path: "C:\\", Size: Size{Width: 800, Height: 600}},
 			},
 			WindowPosition:   Point{X: 100, Y: 100},
 			ThumbnailSize:    Size{Width: 96, Height: 96},
+			Theme:            DefaultTheme(),
 			ExtensionIconMap: map[string]string{},
+			Deprecated:       map[string]string{},
 		}
 
-		// Write the default settings to the file
-		file, err := os.Create(path)
-		if err != nil {
-			fmt.Println("Error creating settings file:", err)
+		defaultSettings.applyDefaults()
+
+		file, createErr := os.Create(path)
+		if createErr != nil {
+			fmt.Println("Error creating settings file:", createErr)
 			return
 		}
 		defer file.Close()
 
 		encoder := toml.NewEncoder(file)
-		if err := encoder.Encode(defaultSettings); err != nil {
-			fmt.Println("Error encoding default settings:", err)
+		if encodeErr := encoder.Encode(defaultSettings); encodeErr != nil {
+			fmt.Println("Error encoding default settings:", encodeErr)
 			return
 		}
 
 		fmt.Println("Settings file created successfully.")
-
 	} else if err != nil {
 		fmt.Println("Error checking settings file:", err)
 	} else {
@@ -120,19 +135,17 @@ func Init(path string) {
 	}
 }
 
-// Print categorizes and prints the settings information
+// Print categorizes and prints the settings information.
 func Print(settings *Settings) {
 	fmt.Println("=== Drawers Settings ===")
 	fmt.Println()
 
-	// Print Startup Settings
-	fmt.Println("⚙️  Startup Settings:")
+	fmt.Println(":: Startup ::")
 	fmt.Printf("  Start with Windows: %t\n", settings.Startup.StartWithWindows)
 	fmt.Printf("  Window Locked: %t\n", settings.Startup.WindowLocked)
 	fmt.Println()
 
-	// Print Drawers
-	fmt.Println("📁 Drawers:")
+	fmt.Println(":: Drawers ::")
 	for i, drawer := range settings.Drawers {
 		fmt.Printf("  %d. %s\n", i+1, drawer.Name)
 		fmt.Printf("     Path: %s\n", drawer.Path)
@@ -140,20 +153,45 @@ func Print(settings *Settings) {
 		fmt.Println()
 	}
 
-	// Print Window Configuration
-	fmt.Println("🪟 Window Configuration:")
+	fmt.Println(":: Window Position ::")
 	fmt.Printf("  Position: (%d, %d)\n", settings.WindowPosition.X, settings.WindowPosition.Y)
 	fmt.Println()
 
-	// Print Thumbnail Settings
-	fmt.Println("🖼️  Thumbnail Settings:")
+	fmt.Println(":: Thumbnail ::")
 	fmt.Printf("  Size: %dx%d\n", settings.ThumbnailSize.Width, settings.ThumbnailSize.Height)
 	fmt.Println()
 
-	// Print Extension Icon Map
-	fmt.Println("📋 Extension Icon Map:")
+	fmt.Println(":: Theme (HSLA) ::")
+	fmt.Printf("  H: %d\n", settings.Theme.Hue)
+	fmt.Printf("  S: %d\n", settings.Theme.Saturation)
+	fmt.Printf("  L: %d\n", settings.Theme.Lightness)
+	fmt.Printf("  A: %d\n", settings.Theme.Alpha)
+	fmt.Println()
+
+	fmt.Println(":: Extension Icon Map ::")
 	for ext, icon := range settings.ExtensionIconMap {
 		fmt.Printf("  %s -> %s\n", ext, icon)
 	}
 	fmt.Println()
+}
+
+func (s *Settings) applyDefaults() {
+	if s.Drawers == nil {
+		s.Drawers = []Drawer{}
+	}
+	if s.ExtensionIconMap == nil {
+		s.ExtensionIconMap = map[string]string{}
+	}
+	if s.Deprecated == nil {
+		s.Deprecated = map[string]string{}
+	}
+	if s.ThumbnailSize.Width == 0 {
+		s.ThumbnailSize.Width = 96
+	}
+	if s.ThumbnailSize.Height == 0 {
+		s.ThumbnailSize.Height = 96
+	}
+	if s.Theme == (Theme{}) {
+		s.Theme = DefaultTheme()
+	}
 }
