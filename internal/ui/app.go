@@ -163,7 +163,7 @@ func (a *App) disposeBrushes() {
 
 func (a *App) loadImages() error {
 	if a.images.Drawer == nil {
-		img, err := walk.NewBitmapFromFile(filepath.Join("assets", "icons", "folder_icon.png"))
+		img, err := walk.NewBitmapFromFileForDPI(filepath.Join("assets", "icons", "folder_icon.png"), 72)
 		if err != nil {
 			return err
 		}

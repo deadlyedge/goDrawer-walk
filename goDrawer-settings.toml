@@ -39,10 +39,10 @@
   height = 96
 
 [theme]
-  h = 36
+  h = 205
   s = 100
   l = 46
-  a = 87
+  a = 80
 
 [extension_icon_map]
   ".url" = "asset/icons/browser_url.png"

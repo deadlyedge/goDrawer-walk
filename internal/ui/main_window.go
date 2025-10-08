@@ -73,46 +73,50 @@ func (a *App) createMainWindow() error {
 						AssignTo:    &a.brandLabel,
 						Text:        "goDrawer",
 						Font:        declarative.Font{Family: brandFontFamily, PointSize: 16},
+						// text should not be selectable, but it is, and drag handler should work here but it did not.
 						OnMouseDown: dragHandler,
 					},
 					declarative.HSpacer{},
 					declarative.PushButton{
 						AssignTo:  &a.settingsButton,
 						Text:      "Settings",
-						MinSize:   declarative.Size{Width: 96, Height: 34},
+						Font:      declarative.Font{Family: brandFontFamily, PointSize: 10},
+						MinSize:   declarative.Size{Width: 80, Height: 16},
 						OnClicked: func() { a.openSettingsWindow() },
 					},
 				},
 			},
 			declarative.Composite{
 				AssignTo:    &a.bodyComposite,
-				OnMouseDown: dragHandler,
+				// OnMouseDown: dragHandler,
 				Layout: declarative.VBox{
-					Margins: declarative.Margins{Left: 4, Top: 4, Right: 4, Bottom: 4},
-					Spacing: 8,
+					Margins: declarative.Margins{Left: 2, Top: 0, Right: 2, Bottom: 0},
+					Spacing: 0,
 				},
 				Children: []declarative.Widget{
 					declarative.Composite{
 						AssignTo:      &a.drawerContainer,
 						StretchFactor: 1,
-						OnMouseDown:   dragHandler,
+						Font:          declarative.Font{PointSize: 12},
+						// OnMouseDown:   dragHandler,
 						Layout: declarative.VBox{
 							MarginsZero: true,
-							Spacing:     6,
+							Spacing:     0,
 						},
 					},
 				},
 			},
 			declarative.Composite{
 				Layout: declarative.HBox{
-					Margins: declarative.Margins{Left: 4, Top: 4, Right: 4, Bottom: 4},
+					Margins: declarative.Margins{Left: 2, Top: 0, Right: 2, Bottom: 0},
 				},
 				Children: []declarative.Widget{
 					declarative.HSpacer{},
 					declarative.PushButton{
 						AssignTo:  &a.addDrawerButton,
 						Text:      "Add Drawer",
-						MinSize:   declarative.Size{Width: 120, Height: 38},
+						Font:      declarative.Font{Family: brandFontFamily, PointSize: 10},
+						MinSize:   declarative.Size{Width: 120, Height: 20},
 						OnClicked: func() { a.onAddDrawer() },
 					},
 				},
@@ -235,8 +239,8 @@ func (a *App) createDrawerItem(drawer settings.Drawer) (*drawerItemView, error) 
 	comp.SetDoubleBuffering(true)
 
 	layout := walk.NewHBoxLayout()
-	layout.SetMargins(walk.Margins{HNear: 12, VNear: 6, HFar: 12, VFar: 6})
-	layout.SetSpacing(10)
+	// layout.SetMargins(walk.Margins{HNear: 12, VNear: 6, HFar: 12, VFar: 6})
+	layout.SetSpacing(0)
 	comp.SetLayout(layout)
 
 	item := &drawerItemView{
