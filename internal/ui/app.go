@@ -6,6 +6,7 @@ import (
 
 	"github.com/deadlyedge/goDrawer/internal/settings"
 	"github.com/lxn/walk"
+	"github.com/lxn/win"
 )
 
 type App struct {
@@ -41,8 +42,7 @@ type App struct {
 	}
 
 	images struct {
-		Drawer walk.Image
-		Tray   *walk.Icon
+		Tray *walk.Icon
 	}
 }
 
@@ -162,15 +162,6 @@ func (a *App) disposeBrushes() {
 }
 
 func (a *App) loadImages() error {
-	if a.images.Drawer == nil {
-		img, err := walk.NewBitmapFromFileForDPI(filepath.Join("assets", "icons", "folder_icon.png"), 72)
-		if err != nil {
-			return err
-		}
-
-		a.images.Drawer = img
-	}
-
 	if a.images.Tray == nil {
 		if icon, err := walk.NewIconFromFile(filepath.Join("assets", "drawer.icon.4.ico")); err == nil {
 			a.images.Tray = icon
@@ -183,10 +174,6 @@ func (a *App) loadImages() error {
 }
 
 func (a *App) disposeImages() {
-	if bmp, ok := a.images.Drawer.(*walk.Bitmap); ok && bmp != nil {
-		bmp.Dispose()
-	}
-	a.images.Drawer = nil
 	if a.images.Tray != nil {
 		a.images.Tray.Dispose()
 		a.images.Tray = nil
@@ -390,6 +377,27 @@ func (a *App) drawerItemAt(x, y int) *drawerItemView {
 		}
 	}
 	return nil
+}
+
+func (a *App) isCursorOverDrawerContainer() bool {
+	if a.drawerContainer == nil {
+		return false
+	}
+
+	var pt win.POINT
+	if !win.GetCursorPos(&pt) {
+		return false
+	}
+
+	client := pt
+	if !win.ScreenToClient(a.drawerContainer.Handle(), &client) {
+		return false
+	}
+
+	bounds := a.drawerContainer.ClientBounds()
+	x := int(client.X)
+	y := int(client.Y)
+	return x >= bounds.X && x < bounds.X+bounds.Width && y >= bounds.Y && y < bounds.Y+bounds.Height
 }
 
 func (a *App) updateTheme(theme settings.Theme) error {

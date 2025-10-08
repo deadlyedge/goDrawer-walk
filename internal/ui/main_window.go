@@ -13,7 +13,6 @@ type drawerItemView struct {
 	app    *App
 	drawer settings.Drawer
 	root   *walk.Composite
-	icon   *walk.ImageView
 	name   *walk.Label
 }
 
@@ -22,18 +21,20 @@ func (item *drawerItemView) applyPalette(hover bool) {
 		return
 	}
 
-	if hover {
-		if item.root != nil && item.app.brushes.AccentLight != nil {
-			item.root.SetBackground(item.app.brushes.AccentLight)
+	if item.root != nil {
+		if hover {
+			if item.app.brushes.AccentLight != nil {
+				item.root.SetBackground(item.app.brushes.AccentLight)
+			}
+		} else if item.app.brushes.Surface != nil {
+			item.root.SetBackground(item.app.brushes.Surface)
 		}
-		if item.name != nil {
+	}
+
+	if item.name != nil {
+		if hover {
 			item.name.SetTextColor(item.app.palette.TextPrimary)
-		}
-	} else {
-		if item.root != nil && item.app.brushes.SurfaceLight != nil {
-			item.root.SetBackground(item.app.brushes.SurfaceLight)
-		}
-		if item.name != nil {
+		} else {
 			item.name.SetTextColor(item.app.palette.TextSecondary)
 		}
 	}
@@ -70,9 +71,9 @@ func (a *App) createMainWindow() error {
 				},
 				Children: []declarative.Widget{
 					declarative.Label{
-						AssignTo:    &a.brandLabel,
-						Text:        "goDrawer",
-						Font:        declarative.Font{Family: brandFontFamily, PointSize: 16},
+						AssignTo: &a.brandLabel,
+						Text:     "goDrawer",
+						Font:     declarative.Font{Family: brandFontFamily, PointSize: 16},
 						// text should not be selectable, but it is, and drag handler should work here but it did not.
 						OnMouseDown: dragHandler,
 					},
@@ -87,10 +88,9 @@ func (a *App) createMainWindow() error {
 				},
 			},
 			declarative.Composite{
-				AssignTo:    &a.bodyComposite,
-				// OnMouseDown: dragHandler,
+				AssignTo: &a.bodyComposite,
 				Layout: declarative.VBox{
-					Margins: declarative.Margins{Left: 2, Top: 0, Right: 2, Bottom: 0},
+					Margins: declarative.Margins{Left: 0, Top: 0, Right: 0, Bottom: 0},
 					Spacing: 0,
 				},
 				Children: []declarative.Widget{
@@ -98,7 +98,6 @@ func (a *App) createMainWindow() error {
 						AssignTo:      &a.drawerContainer,
 						StretchFactor: 1,
 						Font:          declarative.Font{PointSize: 12},
-						// OnMouseDown:   dragHandler,
 						Layout: declarative.VBox{
 							MarginsZero: true,
 							Spacing:     0,
@@ -108,7 +107,7 @@ func (a *App) createMainWindow() error {
 			},
 			declarative.Composite{
 				Layout: declarative.HBox{
-					Margins: declarative.Margins{Left: 2, Top: 0, Right: 2, Bottom: 0},
+					Margins: declarative.Margins{Left: 0, Top: 0, Right: 0, Bottom: 0},
 				},
 				Children: []declarative.Widget{
 					declarative.HSpacer{},
@@ -147,20 +146,10 @@ func (a *App) createMainWindow() error {
 		})
 	}
 
-	if a.bodyComposite != nil {
-		a.bodyComposite.MouseMove().Attach(func(int, int, walk.MouseButton) {
-			a.setHoveredDrawer(nil)
-		})
-	}
-
-	if a.headerComposite != nil {
-		a.headerComposite.MouseMove().Attach(func(int, int, walk.MouseButton) {
-			a.setHoveredDrawer(nil)
-		})
-	}
-
 	a.mainWindow.MouseMove().Attach(func(int, int, walk.MouseButton) {
-		a.setHoveredDrawer(nil)
+		if !a.isCursorOverDrawerContainer() {
+			a.setHoveredDrawer(nil)
+		}
 	})
 
 	return nil
@@ -239,7 +228,7 @@ func (a *App) createDrawerItem(drawer settings.Drawer) (*drawerItemView, error) 
 	comp.SetDoubleBuffering(true)
 
 	layout := walk.NewHBoxLayout()
-	// layout.SetMargins(walk.Margins{HNear: 12, VNear: 6, HFar: 12, VFar: 6})
+	layout.SetMargins(walk.Margins{HNear: 0, VNear: 0, HFar: 0, VFar: 0})
 	layout.SetSpacing(0)
 	comp.SetLayout(layout)
 
@@ -249,23 +238,9 @@ func (a *App) createDrawerItem(drawer settings.Drawer) (*drawerItemView, error) 
 		root:   comp,
 	}
 
-	if a.brushes.SurfaceLight != nil {
-		comp.SetBackground(a.brushes.SurfaceLight)
+	if a.brushes.Surface != nil {
+		comp.SetBackground(a.brushes.Surface)
 	}
-
-	icon, err := walk.NewImageView(comp)
-	if err != nil {
-		comp.Dispose()
-		return nil, err
-	}
-	icon.SetMode(walk.ImageViewModeZoom)
-	icon.SetMinMaxSize(walk.Size{Width: 28, Height: 28}, walk.Size{})
-	if a.images.Drawer != nil {
-		if err := icon.SetImage(a.images.Drawer); err != nil {
-			log.Printf("warn: failed to set drawer icon: %v", err)
-		}
-	}
-	item.icon = icon
 
 	nameLabel, err := walk.NewLabel(comp)
 	if err != nil {
@@ -275,14 +250,14 @@ func (a *App) createDrawerItem(drawer settings.Drawer) (*drawerItemView, error) 
 	nameLabel.SetText(drawer.Name)
 	nameLabel.SetTextAlignment(walk.AlignNear)
 	nameLabel.SetTextColor(a.palette.TextSecondary)
+	nameLabel.SetMinMaxSize(walk.Size{Width: 0, Height: 32}, walk.Size{})
 	layout.SetStretchFactor(nameLabel, 1)
 	item.name = nameLabel
 
 	comp.SetCursor(walk.CursorHand())
-	icon.SetCursor(walk.CursorHand())
 	nameLabel.SetCursor(walk.CursorHand())
 
-	for _, w := range []walk.Widget{comp, icon, nameLabel} {
+	for _, w := range []walk.Widget{comp, nameLabel} {
 		wb := w.AsWindowBase()
 		wb.MouseMove().Attach(func(int, int, walk.MouseButton) {
 			a.setHoveredDrawer(item)

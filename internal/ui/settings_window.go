@@ -151,9 +151,6 @@ func (sw *settingsWindow) open() error {
 	if err := makeWindowBorderless(sw.window); err != nil {
 		return err
 	}
-	if err := makeWindowSemiTransparent(sw.window, sw.app.palette.Alpha); err != nil {
-		return err
-	}
 	if err := hideFromTaskbar(sw.window); err != nil {
 		return err
 	}
