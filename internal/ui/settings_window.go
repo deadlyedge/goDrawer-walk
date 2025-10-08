@@ -53,31 +53,31 @@ func (sw *settingsWindow) open() error {
 	mwDef := declarative.MainWindow{
 		AssignTo:    &sw.window,
 		Title:       "Settings",
-		MinSize:     declarative.Size{Width: 360, Height: 420},
-		Size:        declarative.Size{Width: 380, Height: 440},
+		MinSize:     declarative.Size{Width: 300, Height: 400},
+		Size:        declarative.Size{Width: 300, Height: 400},
 		Layout:      declarative.VBox{MarginsZero: true, Spacing: 0},
 		OnMouseDown: dragHandler,
 		Children: []declarative.Widget{
+			// declarative.Composite{
+			// 	AssignTo:    &sw.header,
+			// 	OnMouseDown: dragHandler,
+			// 	Layout: declarative.HBox{
+			// 		Margins: declarative.Margins{Left: 0, Top: 0, Right: 0, Bottom: 0},
+			// 	},
+			// 	Children: []declarative.Widget{
+			// 		declarative.Label{
+			// 			Text:        "Background (HSLA)",
+			// 			Font:        declarative.Font{Family: brandFontFamily, PointSize: 12},
+			// 			OnMouseDown: dragHandler,
+			// 		},
+			// 	},
+			// },
 			declarative.Composite{
-				AssignTo:    &sw.header,
-				OnMouseDown: dragHandler,
-				Layout: declarative.HBox{
-					Margins: declarative.Margins{Left: 16, Top: 12, Right: 16, Bottom: 8},
-				},
-				Children: []declarative.Widget{
-					declarative.Label{
-						Text:        "Background (HSLA)",
-						Font:        declarative.Font{Family: brandFontFamily, PointSize: 18},
-						OnMouseDown: dragHandler,
-					},
-				},
-			},
-			declarative.Composite{
-				AssignTo:    &sw.body,
-				OnMouseDown: dragHandler,
+				AssignTo: &sw.body,
+				// OnMouseDown: dragHandler,
 				Layout: declarative.VBox{
-					Margins: declarative.Margins{Left: 16, Top: 8, Right: 16, Bottom: 8},
-					Spacing: 10,
+					Margins: declarative.Margins{Left: 0, Top: 0, Right: 0, Bottom: 0},
+					Spacing: 0,
 				},
 				Children: []declarative.Widget{
 					sw.sliderRow("Hue", 0, 360, theme.Hue, &sw.hueSlider, &sw.hueValue, dragHandler, sw.updatePreview),
@@ -88,8 +88,8 @@ func (sw *settingsWindow) open() error {
 						AssignTo:    &sw.previewPanel,
 						OnMouseDown: dragHandler,
 						Layout: declarative.VBox{
-							Margins: declarative.Margins{Left: 12, Top: 12, Right: 12, Bottom: 12},
-							Spacing: 6,
+							Margins: declarative.Margins{Left: 4, Top: 4, Right: 4, Bottom: 4},
+							Spacing: 4,
 						},
 						Children: []declarative.Widget{
 							declarative.Label{Text: "Preview"},
@@ -98,8 +98,8 @@ func (sw *settingsWindow) open() error {
 					},
 					declarative.Composite{
 						Layout: declarative.VBox{
-							Margins: declarative.Margins{Left: 0, Top: 8, Right: 0, Bottom: 0},
-							Spacing: 6,
+							Margins: declarative.Margins{Left: 0, Top: 4, Right: 0, Bottom: 0},
+							Spacing: 4,
 						},
 						Children: []declarative.Widget{
 							declarative.Label{Text: "Startup"},
@@ -119,8 +119,8 @@ func (sw *settingsWindow) open() error {
 			},
 			declarative.Composite{
 				Layout: declarative.HBox{
-					Margins: declarative.Margins{Left: 16, Top: 4, Right: 16, Bottom: 16},
-					Spacing: 12,
+					Margins: declarative.Margins{Left: 4, Top: 4, Right: 4, Bottom: 4},
+					Spacing: 4,
 				},
 				Children: []declarative.Widget{
 					declarative.PushButton{
@@ -148,9 +148,9 @@ func (sw *settingsWindow) open() error {
 		return err
 	}
 
-	if err := makeWindowBorderless(sw.window); err != nil {
-		return err
-	}
+	// if err := makeWindowBorderless(sw.window); err != nil {
+	// 	return err
+	// }
 	if err := hideFromTaskbar(sw.window); err != nil {
 		return err
 	}
