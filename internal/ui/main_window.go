@@ -7,13 +7,14 @@ import (
 	"github.com/deadlyedge/goDrawer/internal/settings"
 	"github.com/lxn/walk"
 	"github.com/lxn/walk/declarative"
+	"github.com/lxn/win"
 )
 
 type drawerItemView struct {
 	app    *App
 	drawer settings.Drawer
 	root   *walk.Composite
-	name   *walk.Label
+	label  *walk.Label
 }
 
 func (item *drawerItemView) applyPalette(hover bool) {
@@ -31,12 +32,20 @@ func (item *drawerItemView) applyPalette(hover bool) {
 		}
 	}
 
-	if item.name != nil {
+	if item.label != nil {
 		if hover {
-			item.name.SetTextColor(item.app.palette.TextPrimary)
+			item.label.SetTextColor(item.app.palette.TextPrimary)
 		} else {
-			item.name.SetTextColor(item.app.palette.TextSecondary)
+			item.label.SetTextColor(item.app.palette.TextSecondary)
 		}
+
+		if item.app.brushes.Surface != nil {
+			item.label.SetBackground(item.app.brushes.Surface)
+		}
+		if hover && item.app.brushes.AccentLight != nil {
+			item.label.SetBackground(item.app.brushes.AccentLight)
+		}
+		item.label.Invalidate()
 	}
 }
 
@@ -242,29 +251,30 @@ func (a *App) createDrawerItem(drawer settings.Drawer) (*drawerItemView, error) 
 		comp.SetBackground(a.brushes.Surface)
 	}
 
-	nameLabel, err := walk.NewLabel(comp)
+	label, err := walk.NewLabelWithStyle(comp, win.SS_NOTIFY)
 	if err != nil {
 		comp.Dispose()
 		return nil, err
 	}
-	nameLabel.SetText(drawer.Name)
-	nameLabel.SetTextAlignment(walk.AlignNear)
-	nameLabel.SetTextColor(a.palette.TextSecondary)
-	nameLabel.SetMinMaxSize(walk.Size{Width: 0, Height: 32}, walk.Size{})
-	layout.SetStretchFactor(nameLabel, 1)
-	item.name = nameLabel
+	label.SetText(drawer.Name)
+	label.SetTextAlignment(walk.AlignNear)
+	label.SetMinMaxSize(walk.Size{Width: 0, Height: 32}, walk.Size{})
+	label.SetCursor(walk.CursorHand())
+	layout.SetStretchFactor(label, 1)
+	item.label = label
 
 	comp.SetCursor(walk.CursorHand())
-	nameLabel.SetCursor(walk.CursorHand())
 
-	for _, w := range []walk.Widget{comp, nameLabel} {
+	current := drawer
+
+	for _, w := range []walk.Widget{comp, label} {
 		wb := w.AsWindowBase()
 		wb.MouseMove().Attach(func(int, int, walk.MouseButton) {
 			a.setHoveredDrawer(item)
 		})
 		wb.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
 			if button == walk.LeftButton {
-				a.openDrawer(drawer)
+				a.openDrawer(current)
 			}
 		})
 	}
